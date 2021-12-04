@@ -1,0 +1,37 @@
+@import '@fontsource/fira-mono';
+
+:root {
+	font-family: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+		Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+	--offblack: #1C1D20;
+	--offwhite: #EFEFEF;
+	--mint: #24FBCA;
+	--blue: #28C2FF;
+}
+
+body {
+	margin: 0;
+	background-color: var(--offblack) !important;
+	color: var(--offwhite) !important;
+}
+
+#svelte{
+	height: 100vh;
+	width: 100vw;
+}
+
+.text-white{
+	color: var(--offwhite);
+}
+.text-black{
+	color: var(--offblack);
+}
+
+.btn-primary{
+	background-color: var(--blue) !important;
+	border-color: var(--blue) !important;
+}
+
+.btn-primary:hover{
+	filter: saturate(150%);
+}

@@ -5,8 +5,8 @@
 		Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 	--offblack: #1C1D20;
 	--offwhite: #EFEFEF;
-	--mint: #24FBCA;
-	--blue: #28C2FF;
+	--mint: rgb(36, 251, 202);
+	--blue: rgb(40, 194, 255);
 }
 
 body {
@@ -18,6 +18,13 @@ body {
 #svelte{
 	height: 100vh;
 	width: 100vw;
+}
+
+.bg-white{
+	color: var(--offwhite);
+}
+.bg-black{
+	color: var(--offblack);
 }
 
 .text-white{

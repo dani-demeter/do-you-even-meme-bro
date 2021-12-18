@@ -1,10 +1,10 @@
 <script>
-	import Header from "$lib/header/Header.svelte";
-	import Navbar from "$lib/Navbar.svelte";
-	import "../app.css";
+	import Header from '$lib/header/Header.svelte';
+	import Navbar from '$lib/Navbar.svelte';
+	import '../app.css';
 
 	let mounted = false;
-	import { onMount } from "svelte";
+	import { onMount } from 'svelte';
 	onMount(() => {
 		mounted = true;
 	});
@@ -17,11 +17,8 @@
 		<slot />
 	</main>
 {:else}
-	<div
-		class="row justify-content-center align-items-center"
-		style="height: 100vh;"
-	>
-				<div id="spinner" />
+	<div class="row justify-content-center align-items-center" style="height: 100vh;">
+		<div id="spinner" />
 	</div>
 {/if}
 
@@ -34,7 +31,6 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		padding: 1rem;
 		width: 100%;
 		height: 100%;
 		margin: 0 auto;

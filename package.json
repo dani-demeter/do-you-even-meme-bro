@@ -5,7 +5,8 @@
     "dev": "svelte-kit dev",
     "build": "svelte-kit build",
     "package": "svelte-kit package",
-    "preview": "svelte-kit preview"
+    "preview": "svelte-kit preview",
+    "dev-def": "npm run dev -- --open"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "next",

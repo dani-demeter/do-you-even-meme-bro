@@ -3,19 +3,21 @@
 </script>
 
 <script>
-	import UsernameSelect from "$lib/UsernameSelect.svelte";
-	import RoomJoiner from "$lib/RoomJoiner.svelte";
+	import UsernameSelect from '$lib/UsernameSelect.svelte';
+	import RoomJoiner from '$lib/RoomJoiner.svelte';
 
-	let username = "";
+	let username = '';
 </script>
 
-{#if username != ""}
-	<div class="row align-items-center">
-		<div class="col-12 col-md-6">
-			<RoomJoiner username={username}/>
-		</div>
-		<div class="col-12 col-md-6 text-center">
-			<div id="rulebook-parent">Rulebook</div>
+{#if username != ''}
+	<div class="container">
+		<div class="row align-items-center">
+			<div class="col-12 col-md-6">
+				<RoomJoiner {username} />
+			</div>
+			<div class="col-12 col-md-6 text-center">
+				<div id="rulebook-parent">Rulebook</div>
+			</div>
 		</div>
 	</div>
 {:else}
@@ -27,7 +29,7 @@
 </svelte:head>
 
 <style>
-	#rulebook-parent{
+	#rulebook-parent {
 		width: 80%;
 		height: 80%;
 		border: 2px solid var(--offwhite);

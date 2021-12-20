@@ -2,18 +2,21 @@
 	export let selectedCard;
 	export let cardText;
 	export let index;
+	export let interactable = false;
 
 	function handleClick(e) {
-		if (selectedCard != index) {
-			selectedCard = index;
-		} else {
-			selectedCard = -1;
+		if(interactable){
+			if (selectedCard != index) {
+				selectedCard = index;
+			} else {
+				selectedCard = -1;
+			}
 		}
 	}
 </script>
 
 <div class="col-6">
-	<div class="card ratio text-black h3 my-2" class:selected={selectedCard == index} on:click={handleClick}>
+	<div class="card ratio text-black h3 my-2" class:hoverableCard={interactable} class:selected={selectedCard == index} on:click={handleClick}>
 		<span class="noInteraction noselect">{cardText} {index}</span>
 	</div>
 </div>
@@ -30,7 +33,7 @@
 		border: 3px solid var(--offwhite);
 	}
 
-	.card:hover {
+	.hoverableCard:hover {
 		border: 3px solid var(--blue);
 		cursor: pointer;
 	}

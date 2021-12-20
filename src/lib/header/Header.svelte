@@ -26,7 +26,6 @@
 
 	<div class="corner">
 		<!-- TODO put something else here? github link? -->
-		<a>Test</a>
 	</div>
 </header>
 

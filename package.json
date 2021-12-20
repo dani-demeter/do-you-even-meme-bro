@@ -6,11 +6,14 @@
     "build": "svelte-kit build",
     "package": "svelte-kit package",
     "preview": "svelte-kit preview",
-    "dev-def": "npm run dev -- --open"
+    "dev-def": "npm run dev -- --open",
+    "deploy": "node ./gh-pages.js"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "next",
+    "@sveltejs/adapter-static": "^1.0.0-next.22",
     "@sveltejs/kit": "next",
+    "gh-pages": "^3.2.3",
     "svelte": "^3.44.0"
   },
   "type": "module",

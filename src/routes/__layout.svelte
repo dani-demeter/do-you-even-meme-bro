@@ -1,6 +1,4 @@
 <script>
-	import Header from '$lib/header/Header.svelte';
-	import Navbar from '$lib/Navbar.svelte';
 	import '../app.css';
 
 	let mounted = false;

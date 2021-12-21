@@ -1,44 +1,78 @@
 <!-- ACTUAL GAME PAGE -->
 <script>
 	import { page } from "$app/stores";
+	import "$lib/chance.js";
 	import Card from "$lib/Card.svelte";
 	import SwapCard from "$lib/SwapCardsCard.svelte";
 	import JudgingCard from "$lib/JudgingCard.svelte";
 	import data from "$lib/data.json";
+	import { app } from "$lib/firebase";
+	import {
+		getDatabase,
+		ref,
+		child,
+		get,
+		onValue,
+		set,
+		update,
+	} from "firebase/database";
 
-	let playerID = 0;
-	const cookieName = `meme-${$page.params.slug}`;
+	const db = getDatabase(
+		app,
+		"https://meme-3d972-default-rtdb.europe-west1.firebasedatabase.app"
+	);
+	const roomRef = child(ref(db), $page.params.slug);
 
-	let roundWinner = -1;
+	function makeid(length) {
+		var result = "";
+		var characters =
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+		var charactersLength = characters.length;
+		for (var i = 0; i < length; i++) {
+			result += characters.charAt(
+				Math.floor(Math.random() * charactersLength)
+			);
+		}
+		return result;
+	}
+
+	let playerID = "";
+	let username = "";
+	const usernameCookieName = "meme-username";
+	let cookieUsername = getCookie(usernameCookieName);
+	if (cookieUsername != null) {
+		username = cookieUsername;
+	}
+	const roomIDCookieName = `meme-id-${$page.params.slug}`;
+	let cookieID = getCookie(roomIDCookieName);
+	if (cookieID != null) {
+		playerID = cookieID;
+	} else {
+		playerID = makeid(7);
+		setCookie(roomIDCookieName, playerID);
+	}
+
+	let roundWinner = null;
 
 	let states = Object.freeze({
-		playingCards: 0,
-		judgingSingle: 1,
-		judgingAll: 2,
-		declaringWinner: 3,
-		choosingTemplate: 4,
+		waitingForPlayers: 0,
+		choosingTemplate: 1,
+		playingCards: 2,
+		judgingSingle: 3,
+		judgingAll: 4,
+		declaringWinner: 5,
 	});
-	let currentState = states.choosingTemplate;
+	let currentState = states.waitingForPlayers;
 
-	// TODO: incorporate backend
 	let selectedCard = -1;
 	let playedCard = -1;
 
-	let playerNum = 0;
-	let judgePlayerNum = 0;
+	let judgePlayerID;
 
 	let template = 0;
 
-	let playerNumsLeftToJudge = [];
-	let currentlyJudgingPlayerNum = -1;
-
-	let scores = {
-		0: 3,
-		1: 4,
-		2: 2,
-		3: 5,
-		4: 0,
-	};
+	let playerIDsLeftToJudge = [];
+	let currentlyJudgingPlayerID = -1;
 
 	var cards = [
 		"This is card #1",
@@ -49,32 +83,31 @@
 		"Surprisingly, this is #6",
 		"This is card #7",
 	];
-	var activePlayerIDs = [0, 1, 2, 3, 4];
-	var ids2names = {
-		0: "zero",
-		1: "one",
-		2: "two",
-		3: "three",
-		4: "four",
-	};
+
 	let playedCards = {};
 	let shuffledPlayedCards = [];
 
-	function getCookie(name) {
-		var cookie = document.cookie;
-		var prefix = name + "=";
-		var begin = cookie.indexOf("; " + prefix);
-		if (begin == -1) {
-			begin = cookie.indexOf(prefix);
-			if (begin != 0) return null;
-		} else {
-			begin += 2;
-			var end = document.cookie.indexOf(";", begin);
-			if (end == -1) {
-				end = cookie.length;
+	let players = {};
+	var activePlayerIDs = Object.keys(players)
+		.filter((pid) => players[pid].active)
+		.sort();
+
+	let chance = null;
+
+	function getCookie(cname) {
+		let name = cname + "=";
+		let decodedCookie = decodeURIComponent(document.cookie);
+		let ca = decodedCookie.split(";");
+		for (let i = 0; i < ca.length; i++) {
+			let c = ca[i];
+			while (c.charAt(0) == " ") {
+				c = c.substring(1);
+			}
+			if (c.indexOf(name) == 0) {
+				return c.substring(name.length, c.length);
 			}
 		}
-		return unescape(cookie.substring(begin + prefix.length, end));
+		return "";
 	}
 
 	function setCookie(name, value) {
@@ -84,24 +117,25 @@
 
 	function playSelection() {
 		if (selectedCard != -1) {
-			//TODO: send update to backend
 			playedCard = selectedCard;
 			selectedCard = -1;
+			set(child(roomRef, `players/${playerID}/playedCard`), playedCard);
 		}
 	}
 
 	function judgeNext() {
-		if (playerNumsLeftToJudge.length > 0) {
-			let ind2Judge = getRandomInt(playerNumsLeftToJudge.length);
-			currentlyJudgingPlayerNum = playerNumsLeftToJudge.splice(
+		if (playerIDsLeftToJudge.length > 0) {
+			let ind2Judge = getRandomInt(playerIDsLeftToJudge.length);
+			currentlyJudgingPlayerID = playerIDsLeftToJudge.splice(
 				ind2Judge,
 				1
 			)[0];
+			set(child(roomRef, `currentlyJudging`), currentlyJudgingPlayerID);
 		} else {
-			// FIXME: change on db
-			shuffledPlayedCards = shuffle(Object.values(playedCards));
+			// shuffledPlayedCards = shuffle(Object.values(playedCards));
+			shuffledPlayedCards = chance.shuffle(Object.values(playedCards));
 			setState(states.judgingAll);
-			// judgingAll = true;
+			set(child(roomRef, "state"), currentState);
 		}
 	}
 
@@ -110,181 +144,189 @@
 	}
 
 	function chooseAsWinner() {
-		//TODO: send to backend
 		roundWinner = findPlayerWhoPlayedCard(
 			shuffledPlayedCards[selectedCard]
 		);
 
-		//FIXME: client cannot change state locally, only on db
 		setState(states.declaringWinner);
+		let updates = {};
+		updates["state"] = currentState;
+		updates["roundWinner"] = currentState;
+		updates["currentlyJudging"] = null;
+		updates[`players/${roundWinner}/score`] =
+			players[roundWinner]?.score + 1;
+		update(roomRef, updates);
 	}
 
 	function setState(newState) {
 		currentState = newState;
 	}
 
-	function shuffle(array) {
-		let currentIndex = array.length,
-			randomIndex;
-
-		// While there remain elements to shuffle...
-		while (currentIndex != 0) {
-			// Pick a remaining element...
-			randomIndex = Math.floor(Math.random() * currentIndex);
-			currentIndex--;
-
-			// And swap it with the current element.
-			[array[currentIndex], array[randomIndex]] = [
-				array[randomIndex],
-				array[currentIndex],
-			];
-		}
-
-		return array;
-	}
-
 	function startNextRound() {
-		judgePlayerNum = (activePlayerIDs.indexOf(playerID)+1)%activePlayerIDs.length; //put on db
-		shuffledPlayedCards = [];
-		playedCards = {};
+		judgePlayerID =
+			(activePlayerIDs.indexOf(playerID) + 1) % activePlayerIDs.length;
+		shuffledPlayedCards = []; //unnecessary
+		playedCards = {}; //unnecessary
 		selectedCard = -1;
-		roundWinner = -1; //put on db
+		playedCard = -1;
+		roundWinner = -1; //unnecessary
 		setState(states.choosingTemplate);
-	}
 
-	//DEV
-	document.onkeydown = function (event) {
-		let c = typeof event !== "undefined" ? event.keyCode : event.which;
-		// console.log(c);
-		if (c == 192) {
-			playedCards[1] = "This card was played by p0";
-			playerNumsLeftToJudge.push(0);
-			if (Object.keys(playedCards).length == activePlayerIDs.length - 1) {
-					let ind2Judge = getRandomInt(playerNumsLeftToJudge.length);
-					currentlyJudgingPlayerNum = playerNumsLeftToJudge.splice(
-						ind2Judge,
-						1
-					)[0];
-				setState(states.judgingSingle);
-			}
-		} else if (c == 49) {
-			playedCards[1] = "This card was played by p1";
-			playerNumsLeftToJudge.push(1);
-			if (Object.keys(playedCards).length == activePlayerIDs.length - 1) {
-				if (playerNum == judgePlayerNum) {
-					let ind2Judge = getRandomInt(playerNumsLeftToJudge.length);
-					currentlyJudgingPlayerNum = playerNumsLeftToJudge.splice(
-						ind2Judge,
-						1
-					)[0];
-				}
-				setState(states.judgingSingle);
-			}
-		} else if (c == 50) {
-			playedCards[2] = "This card was played by p2";
-			playerNumsLeftToJudge.push(2);
-			if (Object.keys(playedCards).length == activePlayerIDs.length - 1) {
-				if (playerNum == judgePlayerNum) {
-					let ind2Judge = getRandomInt(playerNumsLeftToJudge.length);
-					currentlyJudgingPlayerNum = playerNumsLeftToJudge.splice(
-						ind2Judge,
-						1
-					)[0];
-				}
-				setState(states.judgingSingle);
-			}
-		} else if (c == 51) {
-			playedCards[3] = "This card was played by p3";
-			playerNumsLeftToJudge.push(3);
-			if (Object.keys(playedCards).length == activePlayerIDs.length - 1) {
-				if (playerNum == judgePlayerNum) {
-					let ind2Judge = getRandomInt(playerNumsLeftToJudge.length);
-					currentlyJudgingPlayerNum = playerNumsLeftToJudge.splice(
-						ind2Judge,
-						1
-					)[0];
-				}
-				setState(states.judgingSingle);
-			}
-		} else if (c == 52) {
-			playedCards[4] = "This card was played by p4";
-			playerNumsLeftToJudge.push(4);
-			if (Object.keys(playedCards).length == activePlayerIDs.length - 1) {
-				if (playerNum == judgePlayerNum) {
-					let ind2Judge = getRandomInt(playerNumsLeftToJudge.length);
-					currentlyJudgingPlayerNum = playerNumsLeftToJudge.splice(
-						ind2Judge,
-						1
-					)[0];
-				}
-				setState(states.judgingSingle);
-			}
-		}else if (c == 53) {
-			setState(states.playingCards);
+		let updates = {};
+		updates["judge"] = judgePlayerID;
+		updates["template"] = getRandomInt(data.Templates.length);
+		updates["state"] = currentState;
+		for (var pid in players) {
+			updates[`players/${pid}/playedCard`] = null;
 		}
-	};
+		updates["roundWinner"] = null;
+		updates["chance"] = getRandomInt(10);
+		//TODO: draw!
+		update(roomRef, updates);
+	}
 
 	function findPlayerWhoPlayedCard(val) {
-		for (var pn in playedCards) {
-			if (playedCards[pn] == val) {
-				return pn;
+		for (var pid in playedCards) {
+			if (playedCards[pid] == val) {
+				return pid;
 			}
 		}
 		return -1;
 	}
 
 	function rerollTemplate() {
-		if (playerNum == judgePlayerNum) {
+		if (playerID == judgePlayerID) {
 			let newTemplate = getRandomInt(data.Templates.length);
 			while (newTemplate == template) {
 				newTemplate = getRandomInt(data.Templates.length);
 			}
 			template = newTemplate;
+			set(child(roomRef, "template"), template);
 		}
 	}
 
 	function chooseTemplate() {
-		if (playerNum == judgePlayerNum) {
+		if (playerID == judgePlayerID) {
 			setState(states.playingCards);
+			set(child(roomRef, "state"), currentState);
 		}
 	}
+
+	onValue(roomRef, (snapshot) => {
+		//if created new room
+		if (snapshot.exists()) {
+			const snap = snapshot.val();
+			//if existing room, but new to room
+			if (snap?.players?.[playerID] !== undefined) {
+				//if existing room, and rejoined => set active only at end of prev round
+				if (
+					snap?.players?.[playerID].active &&
+					snap.state == states.declaringWinner
+				) {
+					set(child(roomRef, `players/${playerID}/active`), true);
+				}
+				judgePlayerID = snap.judge;
+				currentState = snap.state;
+				template = snap.template;
+				players = snap.players;
+				activePlayerIDs = Object.keys(players)
+					.filter((pid) => players[pid].active)
+					.sort();
+				playedCards = {};
+				for (var pid in players) {
+					if (
+						players[pid].active &&
+						players[pid].playedCard !== undefined
+					) {
+						playedCards[pid] = players[pid].playedCard;
+					}
+				}
+				if (snap.chance !== undefined) {
+					chance = new Chance(snap.chance);
+				}
+
+				if (snap.currentlyJudging !== undefined) {
+					currentlyJudgingPlayerID = snap.currentlyJudging;
+				}
+				if (snap.roundWinner !== undefined) {
+					roundWinner = snap.roundWinner;
+				}
+				if (
+					playerID == judgePlayerID &&
+					currentState == states.playingCards &&
+					Object.keys(playedCards).length ==
+						activePlayerIDs.length - 1
+				) {
+					setState(states.judgingSingle);
+					set(child(roomRef, "state"), currentState);
+				}
+
+				if (
+					currentState == states.judgingAll ||
+					currentState == states.declaringWinner
+				) {
+					shuffledPlayedCards = chance.shuffle(
+						Object.values(playedCards)
+					);
+				} else {
+					shuffledPlayedCards = [];
+				}
+			} else {
+				set(child(roomRef, `players/${playerID}`), {
+					active: true,
+					name: username,
+					score: 0,
+				});
+			}
+		} else {
+			set(roomRef, {
+				chance: getRandomInt(10),
+				judge: playerID,
+				state: 0,
+				template: getRandomInt(data.Templates.length),
+				players: {
+					[playerID]: {
+						active: true,
+						name: username,
+						score: 0,
+					},
+				},
+			});
+		}
+	});
 </script>
 
-<div class="container">
-	<div
-		class="modal fade text-black"
-		id="scoresModal"
-		tabindex="-1"
-		aria-labelledby="scoresModalLabel"
-		aria-hidden="true"
-	>
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="scoresModalLabel">
-						Modal title
-					</h5>
-					<button
-						type="button"
-						class="btn-close"
-						data-bs-dismiss="modal"
-						aria-label="Close"
-					/>
-				</div>
-				<div class="modal-body">
-					<ul>
-						{#each activePlayerIDs as pid}
-							<li>{ids2names[pid]}: {scores[pid]}</li>
-						{/each}
-					</ul>
-				</div>
-				<div class="modal-footer">
-					<button
-						type="button"
-						class="btn btn-primary"
-						data-bs-dismiss="modal">Close</button
-					>
-				</div>
+<div
+	class="modal fade text-black"
+	id="scoresModal"
+	tabindex="-1"
+	aria-labelledby="scoresModalLabel"
+	aria-hidden="true"
+>
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="scoresModalLabel">Scores</h5>
+				<button
+					type="button"
+					class="btn-close"
+					data-bs-dismiss="modal"
+					aria-label="Close"
+				/>
+			</div>
+			<div class="modal-body">
+				<ul>
+					{#each activePlayerIDs as pid}
+						<li>{players[pid]?.name}: {players[pid]?.score}</li>
+					{/each}
+				</ul>
+			</div>
+			<div class="modal-footer">
+				<button
+					type="button"
+					class="btn btn-primary"
+					data-bs-dismiss="modal">Close</button
+				>
 			</div>
 		</div>
 	</div>
@@ -308,130 +350,172 @@
 				<button
 					class="btn btn-primary mx-3"
 					data-bs-toggle="modal"
-					data-bs-target="#scoresModal">Scores</button>
+					data-bs-target="#scoresModal">Scores</button
+				>
 
 				<button class="btn btn-secondary mx-3">Leave Room</button>
 			</ul>
 		</div>
 	</div>
 </nav>
-<div class="row justify-content-center">
-	<!-- LEFT -->
-	<div class="col-12 col-lg-6 text-center">
-		<div class="display-3 py-3">Template</div>
-		{#if playerNum == judgePlayerNum && currentState == states.choosingTemplate}
-			<button class="btn btn-secondary mb-3" on:click={rerollTemplate}
-				>Reroll</button
-			>
-			<button class="btn btn-primary mb-3" on:click={chooseTemplate}
-				>Choose</button
-			>
-		{/if}
-		<div class="ratio ratio-16x9">
-			<img
-				src={data.Templates[template].image}
-				alt=""
-				class="img-fluid"
-				style="border-radius: 2vw"
-			/>
-		</div>
-		<div class="mt-3">
-			<a href={data.Templates[template].help} target="_blank"
-				>Template Help</a
-			>
-		</div>
-		{#if playerNum == judgePlayerNum}
-			<div class="h1 py-3">You are the judge!</div>
+<div class="container">
+	<div class="row justify-content-center">
+		{#if currentState == states.waitingForPlayers}
+			<div class="col-12 text-center">
+				{#if playerID == judgePlayerID}
+					<div>
+						<button
+							class="btn btn-primary"
+							class:disabled={activePlayerIDs.length <= 2}
+							>Start Game</button
+						>
+					</div>
+				{/if}
+				<span class="display-3 py-3">Players in Lobby</span>
+				<ul>
+					{#each Object.values(players) as player}
+						<li>{player.name}</li>
+					{/each}
+				</ul>
+			</div>
 		{:else}
-			<div class="h1 py-3">Judge: Nat</div>
+			<!-- LEFT -->
+			<div class="col-12 col-lg-6 text-center">
+				<div class="display-3 py-3">Template</div>
+				{#if playerID == judgePlayerID && currentState == states.choosingTemplate}
+					<button
+						class="btn btn-secondary mb-3"
+						on:click={rerollTemplate}>Reroll</button
+					>
+					<button
+						class="btn btn-primary mb-3"
+						on:click={chooseTemplate}>Choose</button
+					>
+				{/if}
+				<div class="ratio ratio-16x9">
+					<img
+						src={data.Templates[template].image}
+						alt=""
+						class="img-fluid"
+						style="border-radius: 2vw"
+					/>
+				</div>
+				<div class="mt-3">
+					<a href={data.Templates[template].help} target="_blank"
+						>Template Help</a
+					>
+				</div>
+				{#if playerID == judgePlayerID}
+					<div class="h1 py-3">You are the judge!</div>
+				{:else}
+					<div class="h1 py-3">
+						Judge: {players[judgePlayerID]?.name}
+					</div>
+				{/if}
+			</div>
+			<!-- RIGHT -->
+			{#if currentState == states.playingCards}
+				{#if playerID != judgePlayerID && playedCard == -1}
+					<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
+						<div class="display-3 py-5">Your Cards</div>
+						<button
+							class="btn btn-primary mb-5"
+							class:disabled={selectedCard == -1}
+							on:click={playSelection}>Play Selection</button
+						>
+						<div class="row">
+							{#each cards as cardText, index}
+								<Card
+									bind:cardText
+									bind:selectedCard
+									{index}
+									interactable={true}
+								/>
+							{/each}
+							<SwapCard bind:selectedCard index={cards.length} />
+						</div>
+					</div>
+				{:else}
+					<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
+						<div class="display-3 py-5">
+							Waiting on cards ({Object.keys(playedCards)
+								.length}/{activePlayerIDs.length - 1})
+						</div>
+					</div>
+				{/if}
+			{:else if currentState == states.judgingSingle}
+				<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
+					<div class="display-3 py-5">Played Card</div>
+					{#if playerID == judgePlayerID}
+						<button
+							class="btn btn-primary mb-5"
+							on:click={judgeNext}
+						>
+							{#if playerIDsLeftToJudge.length > 0}
+								View Next
+							{:else}
+								Choose Winner
+							{/if}
+						</button>
+					{/if}
+					<div class="row justify-content-center align-items-center">
+						<JudgingCard
+							cardText={playedCards[currentlyJudgingPlayerID]}
+						/>
+					</div>
+				</div>
+			{:else if currentState == states.judgingAll}
+				<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
+					<div class="display-3 py-5">Played Cards</div>
+					{#if playerID == judgePlayerID}
+						<button
+							class="btn btn-primary mb-5"
+							class:disabled={selectedCard == -1}
+							on:click={chooseAsWinner}
+							>Choose as Winner
+						</button>
+					{/if}
+					<div class="row">
+						{#each shuffledPlayedCards as cardText, index}
+							<Card
+								bind:cardText
+								bind:selectedCard
+								{index}
+								interactable={playerID == judgePlayerID}
+							/>
+						{/each}
+					</div>
+				</div>
+			{:else if currentState == states.declaringWinner}
+				<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
+					<div class="display-3 py-5">
+						Winner: {players[roundWinner]?.name}
+					</div>
+					{#if playerID == judgePlayerID}
+						<button
+							class="btn btn-primary mb-5"
+							on:click={startNextRound}
+						>
+							Start Next Round
+						</button>
+					{/if}
+					<div class="row justify-content-center align-items-center">
+						<JudgingCard
+							cardText={data.Cards[
+								players[roundWinner].playedCard
+							]}
+						/>
+					</div>
+				</div>
+			{:else if currentState == states.choosingTemplate}
+				<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
+					<div class="h1 py-5">
+						Hang tight while the Judge chooses a template
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
-	<!-- RIGHT -->
-	{#if currentState == states.playingCards}
-		{#if playerNum != judgePlayerNum && playedCard == -1}
-			<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
-				<div class="display-3 py-5">Your Cards</div>
-				<button
-					class="btn btn-primary mb-5"
-					class:disabled={selectedCard == -1}
-					on:click={playSelection}>Play Selection</button
-				>
-				<div class="row">
-					{#each cards as cardText, index}
-						<Card
-							bind:cardText
-							bind:selectedCard
-							{index}
-							interactable={true}
-						/>
-					{/each}
-					<SwapCard bind:selectedCard index={cards.length} />
-				</div>
-			</div>
-		{:else}
-			<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
-				<div class="display-3 py-5">
-					Waiting on cards ({Object.keys(playedCards)
-						.length}/{activePlayerIDs.length - 1})
-				</div>
-			</div>
-		{/if}
-	{:else if currentState == states.judgingSingle}
-		<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
-			<div class="display-3 py-5">Played Card</div>
-			<button class="btn btn-primary mb-5" on:click={judgeNext}>
-				{#if playerNumsLeftToJudge.length > 0}
-					View Next
-				{:else}
-					Choose Winner
-				{/if}
-			</button>
-			<div class="row justify-content-center align-items-center">
-				<JudgingCard
-					cardText={playedCards[currentlyJudgingPlayerNum]}
-				/>
-			</div>
-		</div>
-	{:else if currentState == states.judgingAll}
-		<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
-			<div class="display-3 py-5">Played Cards</div>
-			{#if playerNum == judgePlayerNum}
-				<button
-					class="btn btn-primary mb-5"
-					class:disabled={selectedCard == -1}
-					on:click={chooseAsWinner}>Choose as Winner</button
-				>
-			{/if}
-			<div class="row">
-				{#each shuffledPlayedCards as cardText, index}
-					<Card
-						bind:cardText
-						bind:selectedCard
-						{index}
-						interactable={playerNum == judgePlayerNum}
-					/>
-				{/each}
-			</div>
-		</div>
-	{:else if currentState == states.declaringWinner}
-		<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
-			<div class="display-3 py-5">Winner: {ids2names[roundWinner]}</div>
-			{#if playerNum == judgePlayerNum}
-				<button class="btn btn-primary mb-5" on:click={startNextRound}>
-					Start Next Round
-				</button>
-			{/if}
-			<div class="row justify-content-center align-items-center">
-				<JudgingCard cardText={shuffledPlayedCards[selectedCard]} />
-			</div>
-		</div>
-	{:else if currentState == states.choosingTemplate}
-		<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
-			<div class="h1 py-5">
-				Hang tight while the Judge chooses a template
-			</div>
-		</div>
-	{/if}
 </div>
 
 <style>

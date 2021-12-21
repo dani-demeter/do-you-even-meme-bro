@@ -1,5 +1,6 @@
 <script>
     export let username;
+	import { base } from '$app/paths';
 
     let roomName = "";
 </script>
@@ -14,5 +15,5 @@
     placeholder="Room Name"
 />
 <div class="text-end">
-    <a href={"/room/"+roomName} role="button" class="btn btn-primary">Join Room</a>
+    <a href={base+"/room/"+roomName} role="button" class="btn btn-primary">Join Room</a>
 </div>

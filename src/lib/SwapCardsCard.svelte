@@ -4,7 +4,7 @@
 
 	function handleClick(e) {
 		if (selectedCard != index) {
-			selectedCard = index;
+			selectedCard = -2;
 		} else {
 			selectedCard = -1;
 		}

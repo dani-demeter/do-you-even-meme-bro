@@ -74,16 +74,6 @@
 	let playerIDsLeftToJudge = [];
 	let currentlyJudgingPlayerID = -1;
 
-	var cards = [
-		"This is card #1",
-		"This is card #2",
-		"Surprisingly, this is #3",
-		"This is card #4",
-		"This is card #5",
-		"Surprisingly, this is #6",
-		"This is card #7",
-	];
-
 	let playedCards = {};
 	let shuffledPlayedCards = [];
 
@@ -93,6 +83,8 @@
 		.sort();
 
 	let chance = null;
+	let deckChance = null;
+	let nextDeckCard = 0;
 
 	function getCookie(cname) {
 		let name = cname + "=";
@@ -119,7 +111,18 @@
 		if (selectedCard != -1) {
 			playedCard = selectedCard;
 			selectedCard = -1;
-			set(child(roomRef, `players/${playerID}/playedCard`), playedCard);
+			if (playedCard == -2) {
+				//swapping all cards
+				let updates = {};
+				updates[`players/${playerID}/playedCard`] = playedCard;
+				updates[`players/${playerID}/hand`] = null;
+				update(roomRef, updates);
+			} else {
+				set(
+					child(roomRef, `players/${playerID}/playedCard`),
+					playedCard
+				);
+			}
 		}
 	}
 
@@ -132,10 +135,12 @@
 			)[0];
 			set(child(roomRef, `currentlyJudging`), currentlyJudgingPlayerID);
 		} else {
-			// shuffledPlayedCards = shuffle(Object.values(playedCards));
 			shuffledPlayedCards = chance.shuffle(Object.values(playedCards));
 			setState(states.judgingAll);
-			set(child(roomRef, "state"), currentState);
+			let updates = {};
+			updates['state'] = currentState;
+			updates['currentlyJudging'] = null;
+			update(roomRef, updates);
 		}
 	}
 
@@ -151,7 +156,7 @@
 		setState(states.declaringWinner);
 		let updates = {};
 		updates["state"] = currentState;
-		updates["roundWinner"] = currentState;
+		updates["roundWinner"] = roundWinner;
 		updates["currentlyJudging"] = null;
 		updates[`players/${roundWinner}/score`] =
 			players[roundWinner]?.score + 1;
@@ -162,9 +167,22 @@
 		currentState = newState;
 	}
 
+	function startGame() {
+		setState(states.choosingTemplate);
+		template = getRandomInt(data.Templates.length);
+
+		let updates = {};
+		updates["template"] = template;
+		updates["state"] = currentState;
+		updates["chance"] = getRandomInt(10);
+		drawUntilAllFull(updates);
+		console.log(updates);
+		update(roomRef, updates);
+	}
+
 	function startNextRound() {
-		judgePlayerID =
-			(activePlayerIDs.indexOf(playerID) + 1) % activePlayerIDs.length;
+		judgePlayerID =activePlayerIDs[
+			(activePlayerIDs.indexOf(playerID) + 1) % activePlayerIDs.length];
 		shuffledPlayedCards = []; //unnecessary
 		playedCards = {}; //unnecessary
 		selectedCard = -1;
@@ -181,8 +199,35 @@
 		}
 		updates["roundWinner"] = null;
 		updates["chance"] = getRandomInt(10);
-		//TODO: draw!
+		drawUntilAllFull(updates);
 		update(roomRef, updates);
+	}
+
+	function drawUntilAllFull(updates) {
+		let cardArray = [...Array(data.Cards.length).keys()];
+		let shuffledCardArray = deckChance.shuffle(cardArray);
+		let need2updateDeckChance = false;
+		let deckChanceP = null;
+		for (var pid in players) {
+			if (players[pid].active) {
+				let playerHand = players[pid]?.hand || [];
+				console.log(playerHand);
+				while (playerHand.length < 7) {
+					playerHand.push(shuffledCardArray[nextDeckCard++]);
+					if (nextDeckCard >= data.Cards.length) {
+						nextDeckCard = 0;
+						deckChanceP = getRandomInt(10000);
+						need2updateDeckChance = true;
+						deckChance = new Chance(deckChanceP);
+					}
+				}
+				updates[`players/${pid}/hand`] = playerHand;
+			}
+		}
+		if (need2updateDeckChance) {
+			updates["deckChance"] = deckChanceP;
+		}
+		updates["nextDeckCard"] = nextDeckCard;
 	}
 
 	function findPlayerWhoPlayedCard(val) {
@@ -220,7 +265,7 @@
 			if (snap?.players?.[playerID] !== undefined) {
 				//if existing room, and rejoined => set active only at end of prev round
 				if (
-					snap?.players?.[playerID].active &&
+					!snap?.players?.[playerID].active &&
 					snap.state == states.declaringWinner
 				) {
 					set(child(roomRef, `players/${playerID}/active`), true);
@@ -244,6 +289,12 @@
 				if (snap.chance !== undefined) {
 					chance = new Chance(snap.chance);
 				}
+				if (snap.deckChance !== undefined) {
+					deckChance = new Chance(snap.deckChance);
+				}
+				if (snap.nextDeckCard !== undefined) {
+					nextDeckCard = snap.nextDeckCard;
+				}
 
 				if (snap.currentlyJudging !== undefined) {
 					currentlyJudgingPlayerID = snap.currentlyJudging;
@@ -251,14 +302,34 @@
 				if (snap.roundWinner !== undefined) {
 					roundWinner = snap.roundWinner;
 				}
+
 				if (
 					playerID == judgePlayerID &&
 					currentState == states.playingCards &&
 					Object.keys(playedCards).length ==
 						activePlayerIDs.length - 1
 				) {
-					setState(states.judgingSingle);
-					set(child(roomRef, "state"), currentState);
+					let updates = {};
+					playerIDsLeftToJudge = activePlayerIDs.filter(
+						(pid) =>
+							players[pid]?.playedCard !== undefined &&
+							players[pid]?.playedCard >= 0
+					);
+					if (playerIDsLeftToJudge.length > 0) {
+						let ind2Judge = getRandomInt(
+							playerIDsLeftToJudge.length
+						);
+						currentlyJudgingPlayerID = playerIDsLeftToJudge.splice(
+							ind2Judge,
+							1
+						)[0];
+						updates['currentlyJudging'] = currentlyJudgingPlayerID;
+						setState(states.judgingSingle);
+					} else {
+						setState(states.declaringWinner);
+					}
+					updates[`state`] = currentState;
+					update(roomRef, updates);
 				}
 
 				if (
@@ -281,6 +352,8 @@
 		} else {
 			set(roomRef, {
 				chance: getRandomInt(10),
+				deckChance: getRandomInt(10000),
+				nextDeckCard: 0,
 				judge: playerID,
 				state: 0,
 				template: getRandomInt(data.Templates.length),
@@ -294,6 +367,11 @@
 			});
 		}
 	});
+
+	function leaveRoom(){
+		set(child(roomRef, `players/${playerID}/active`), false);
+		location.href= '/';
+	}
 </script>
 
 <div
@@ -353,7 +431,7 @@
 					data-bs-target="#scoresModal">Scores</button
 				>
 
-				<button class="btn btn-secondary mx-3">Leave Room</button>
+				<button class="btn btn-secondary mx-3" on:click={leaveRoom}>Leave Room</button>
 			</ul>
 		</div>
 	</div>
@@ -367,7 +445,7 @@
 						<button
 							class="btn btn-primary"
 							class:disabled={activePlayerIDs.length <= 2}
-							>Start Game</button
+							on:click={startGame}>Start Game</button
 						>
 					</div>
 				{/if}
@@ -424,15 +502,15 @@
 							on:click={playSelection}>Play Selection</button
 						>
 						<div class="row">
-							{#each cards as cardText, index}
+							{#each players[playerID].hand as cardID, index}
 								<Card
-									bind:cardText
+									cardText={data.Cards[cardID]}
 									bind:selectedCard
 									{index}
 									interactable={true}
 								/>
 							{/each}
-							<SwapCard bind:selectedCard index={cards.length} />
+							<SwapCard bind:selectedCard index={players[playerID].hand.length} />
 						</div>
 					</div>
 				{:else}
@@ -460,7 +538,7 @@
 					{/if}
 					<div class="row justify-content-center align-items-center">
 						<JudgingCard
-							cardText={playedCards[currentlyJudgingPlayerID]}
+							cardText={data.Cards[playedCards[currentlyJudgingPlayerID]]}
 						/>
 					</div>
 				</div>
@@ -476,9 +554,9 @@
 						</button>
 					{/if}
 					<div class="row">
-						{#each shuffledPlayedCards as cardText, index}
+						{#each shuffledPlayedCards as cardInd, index}
 							<Card
-								bind:cardText
+								cardText={data.Cards[cardInd]}
 								bind:selectedCard
 								{index}
 								interactable={playerID == judgePlayerID}
@@ -489,7 +567,7 @@
 			{:else if currentState == states.declaringWinner}
 				<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
 					<div class="display-3 py-5">
-						Winner: {players[roundWinner]?.name}
+						Winner: {players[roundWinner]?.name || "No Winner"}
 					</div>
 					{#if playerID == judgePlayerID}
 						<button
@@ -499,13 +577,17 @@
 							Start Next Round
 						</button>
 					{/if}
-					<div class="row justify-content-center align-items-center">
-						<JudgingCard
-							cardText={data.Cards[
-								players[roundWinner].playedCard
-							]}
-						/>
-					</div>
+					{#if roundWinner !== undefined}
+						<div
+							class="row justify-content-center align-items-center"
+						>
+							<JudgingCard
+								cardText={data.Cards[
+									players[roundWinner].playedCard
+								]}
+							/>
+						</div>
+					{/if}
 				</div>
 			{:else if currentState == states.choosingTemplate}
 				<div class="col-12 col-lg-6 text-center scroll-y hidden-x">

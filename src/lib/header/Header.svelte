@@ -25,7 +25,6 @@
 	</nav>
 
 	<div class="corner">
-		<!-- TODO put something else here? github link? -->
 	</div>
 </header>
 

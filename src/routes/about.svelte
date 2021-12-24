@@ -26,7 +26,6 @@
 		following into your command line and following the prompts:
 	</p>
 
-	<!-- TODO lose the @next! -->
 	<pre>npm init svelte@next</pre>
 
 	<p>

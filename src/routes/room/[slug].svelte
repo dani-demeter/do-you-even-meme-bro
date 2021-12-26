@@ -93,6 +93,14 @@
 						if (snap.roundWinner !== undefined) {
 							roundWinner = snap.roundWinner;
 						}
+						if(snap.state == states.declaringWinner){
+							playedCard = -1;
+							shuffledPlayedCards = []; //unnecessary
+							playedCards = {}; //unnecessary
+							selectedCard = -1;
+							playedCard = -1;
+							roundWinner = -1; //unnecessary
+						}
 
 						if (
 							playerID == judgePlayerID &&
@@ -257,7 +265,6 @@
 				updates[`players/${playerID}/hand/${playedCard}`] = null;
 				update(roomRef, updates);
 			}
-			playedCard = -1;
 		}
 	}
 
@@ -397,7 +404,7 @@
 	let connected2db = false;
 
 	function leaveRoom() {
-		if (activePlayerIDs.length <= 3) {
+		if (activePlayerIDs.length < 3) {
 			set(roomRef, null);
 		} else {
 			let updates = {};

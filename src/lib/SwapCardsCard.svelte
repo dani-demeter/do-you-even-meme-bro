@@ -12,8 +12,8 @@
 </script>
 
 <div class="col-6">
-	<div class="card ratio text-black h3 my-2" class:selected={selectedCard == index} on:click={handleClick}>
-		<span class="noInteraction noselect">Swap Cards {index}</span>
+	<div class="card ratio text-black h5 my-2" class:selected={selectedCard == index} on:click={handleClick}>
+		<span class="noInteraction noselect">Swap Cards</span>
 	</div>
 </div>
 

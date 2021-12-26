@@ -3,7 +3,7 @@
 </script>
 
 <div class="col-6">
-	<div class="card ratio text-black h3 my-2">
+	<div class="card ratio text-black h5 my-2">
 		<span class="noInteraction noselect">{cardText}</span>
 	</div>
 </div>

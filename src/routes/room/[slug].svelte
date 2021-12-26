@@ -35,7 +35,7 @@
 		}
 		const roomIDCookieName = `meme-id-${$page.params.slug}`;
 		let cookieID = getCookie(roomIDCookieName);
-		if (cookieID != null && cookieID != "") {
+		if (cookieID != "") {
 			playerID = cookieID;
 		} else {
 			playerID = makeid(7);

@@ -6,6 +6,7 @@
 	import SwapCard from "$lib/SwapCardsCard.svelte";
 	import JudgingCard from "$lib/JudgingCard.svelte";
 	import data from "$lib/data.json";
+	import { onMount } from 'svelte';
 	import { app } from "$lib/firebase";
 	import {
 		getDatabase,
@@ -40,7 +41,7 @@
 			playerID = makeid(7);
 			setCookie(roomIDCookieName, playerID);
 		}
-		
+
 		roomRef = child(ref(db), $page.params.slug);
 
     });

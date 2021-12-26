@@ -16,7 +16,7 @@
 </script>
 
 <div class="col-6">
-	<div class="card ratio text-black h3 my-2" class:hoverableCard={interactable} class:selected={selectedCard == index} on:click={handleClick}>
+	<div class="card ratio text-black h5 my-2" class:hoverableCard={interactable} class:selected={selectedCard == index} on:click={handleClick}>
 		<span class="noInteraction noselect">{cardText}</span>
 	</div>
 </div>

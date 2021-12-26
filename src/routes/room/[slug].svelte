@@ -599,7 +599,7 @@
 					<div class="row justify-content-center align-items-center">
 						<JudgingCard
 							cardText={data.Cards[
-								playedCards[currentlyJudgingPlayerID]
+								players[currentlyJudgingPlayerID].hand[playedCards[currentlyJudgingPlayerID]]
 							]}
 						/>
 					</div>

@@ -252,10 +252,10 @@
 				updates[`players/${playerID}/hand`] = null;
 				update(roomRef, updates);
 			} else {
-				set(
-					child(roomRef, `players/${playerID}/playedCard`),
-					playedCard
-				);
+				let updates = {};
+				updates[`players/${playerID}/playedCard`] = players[playerID].hand[playedCard];
+				updates[`players/${playerID}/hand/${playedCard}`] = null;
+				update(roomRef, updates);
 			}
 		}
 	}
@@ -598,9 +598,7 @@
 					{/if}
 					<div class="row justify-content-center align-items-center">
 						<JudgingCard
-							cardText={data.Cards[
-								players[currentlyJudgingPlayerID].hand[playedCards[currentlyJudgingPlayerID]]
-							]}
+							cardText={data.Cards[playedCards[currentlyJudgingPlayerID]]}
 						/>
 					</div>
 				</div>

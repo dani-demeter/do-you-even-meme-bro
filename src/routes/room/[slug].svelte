@@ -257,6 +257,7 @@
 				updates[`players/${playerID}/hand/${playedCard}`] = null;
 				update(roomRef, updates);
 			}
+			playedCard = -1;
 		}
 	}
 

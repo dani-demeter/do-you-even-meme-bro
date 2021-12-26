@@ -22,6 +22,7 @@
 		"https://meme-3d972-default-rtdb.europe-west1.firebasedatabase.app"
 	);
 	const roomRef = child(ref(db), $page.params.slug);
+	$: console.log("slug:", $page.params.slug);
 
 	function makeid(length) {
 		var result = "";

@@ -17,12 +17,33 @@
 		update,
 	} from "firebase/database";
 
-	const db = getDatabase(
-		app,
-		"https://meme-3d972-default-rtdb.europe-west1.firebasedatabase.app"
-	);
-	const roomRef = child(ref(db), $page.params.slug);
-	$: console.log("slug:", $page.params.slug);
+	let roomRef;
+	let db;
+	let playerID = "";
+	let username = "";
+	onMount(() => {
+		db = getDatabase(
+			app,
+			"https://meme-3d972-default-rtdb.europe-west1.firebasedatabase.app"
+		);
+
+		const usernameCookieName = "meme-username";
+		let cookieUsername = getCookie(usernameCookieName);
+		if (cookieUsername != null) {
+			username = cookieUsername;
+		}
+		const roomIDCookieName = `meme-id-${$page.params.slug}`;
+		let cookieID = getCookie(roomIDCookieName);
+		if (cookieID != null) {
+			playerID = cookieID;
+		} else {
+			playerID = makeid(7);
+			setCookie(roomIDCookieName, playerID);
+		}
+		
+		roomRef = child(ref(db), $page.params.slug);
+
+    });
 
 	function makeid(length) {
 		var result = "";
@@ -35,22 +56,6 @@
 			);
 		}
 		return result;
-	}
-
-	let playerID = "";
-	let username = "";
-	const usernameCookieName = "meme-username";
-	let cookieUsername = getCookie(usernameCookieName);
-	if (cookieUsername != null) {
-		username = cookieUsername;
-	}
-	const roomIDCookieName = `meme-id-${$page.params.slug}`;
-	let cookieID = getCookie(roomIDCookieName);
-	if (cookieID != null) {
-		playerID = cookieID;
-	} else {
-		playerID = makeid(7);
-		setCookie(roomIDCookieName, playerID);
 	}
 
 	let roundWinner = null;

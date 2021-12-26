@@ -92,6 +92,9 @@
 						}
 						if (snap.roundWinner !== undefined) {
 							roundWinner = snap.roundWinner;
+							console.log("roundwinner:", roundWinner);
+							console.log("winner player:", players[roundWinner]);
+							console.log("winner card:", players[roundWinner]?.playedCard);
 						}
 						if(snap.state == states.declaringWinner){
 							playedCard = -1;
@@ -99,6 +102,7 @@
 							playedCards = {}; //unnecessary
 							selectedCard = -1;
 							playedCard = -1;
+						}else if(snap.state == states.playingCards){
 							roundWinner = -1; //unnecessary
 						}
 
@@ -138,7 +142,9 @@
 							currentState == states.declaringWinner
 						) {
 							shuffledPlayedCards = chance.shuffle(
-								Object.values(playedCards)
+								Object.values(playedCards).filter(
+								(card) => card >= 0
+							)
 							);
 						} else {
 							shuffledPlayedCards = [];
@@ -344,7 +350,17 @@
 		updates["roundWinner"] = null;
 		updates["chance"] = getRandomInt(10);
 		drawUntilAllFull(updates);
+		console.log(updates);
 		update(roomRef, updates);
+	}
+
+	function getIndexOfUndefined(arr){
+		for(var i = 0; i<arr.length; i++){
+			if(arr[i] == undefined){
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	function drawUntilAllFull(updates) {
@@ -356,14 +372,22 @@
 			if (players[pid].active) {
 				let playerHand = players[pid]?.hand || [];
 				console.log(playerHand);
-				while (playerHand.length < 7) {
-					playerHand.push(shuffledCardArray[nextDeckCard++]);
+				let validCardsInhand = 0;
+				playerHand.forEach(_ => validCardsInhand++);
+				console.log(playerHand);
+				while (validCardsInhand<7) {
+					let newCardIndex = getIndexOfUndefined(playerHand) != -1 
+					? getIndexOfUndefined(playerHand)
+					: playerHand.length;
+					playerHand[newCardIndex] = shuffledCardArray[nextDeckCard++];
 					if (nextDeckCard >= data.Cards.length) {
 						nextDeckCard = 0;
 						deckChanceP = getRandomInt(10000);
 						need2updateDeckChance = true;
 						deckChance = new Chance(deckChanceP);
 					}
+					validCardsInhand = 0;
+					playerHand.forEach(_ => validCardsInhand++);
 				}
 				updates[`players/${pid}/hand`] = playerHand;
 			}
@@ -558,7 +582,7 @@
 			</div>
 			<!-- RIGHT -->
 			{#if currentState == states.playingCards}
-				{#if playerID != judgePlayerID && playedCard == -1}
+				{#if playerID != judgePlayerID && playedCard == -1 && players[playerID]?.active}
 					<div class="col-12 col-lg-6 text-center scroll-y hidden-x">
 						<div class="display-3 py-5">Your Cards</div>
 						<button
@@ -650,9 +674,9 @@
 							class="row justify-content-center align-items-center"
 						>
 							<JudgingCard
-								cardText={data.Cards[
+								cardText="{data.Cards[
 									players[roundWinner]?.playedCard
-								]}
+								] || ""}"
 							/>
 						</div>
 					{/if}

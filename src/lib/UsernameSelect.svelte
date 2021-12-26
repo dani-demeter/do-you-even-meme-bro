@@ -32,8 +32,11 @@
 }
 
     function setCookie(name, value) {
-        console.log(document.cookie);
-        document.cookie = `${name}=${value}`;
+        var expires = "";
+        var date = new Date();
+        date.setTime(date.getTime() + 1000 * 24 * 60 * 60 * 1000);
+        expires = "; expires=" + date.toUTCString();
+        document.cookie = name + "=" + (value || "") + expires + "; path=/";
     }
 </script>
 

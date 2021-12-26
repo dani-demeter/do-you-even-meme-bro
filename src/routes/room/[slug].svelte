@@ -72,7 +72,7 @@
 						for (var pid in players) {
 							if (
 								players[pid].active &&
-								players[pid].playedCard !== undefined
+								players[pid]?.playedCard !== undefined
 							) {
 								playedCards[pid] = players[pid].playedCard;
 							}
@@ -651,7 +651,7 @@
 						>
 							<JudgingCard
 								cardText={data.Cards[
-									players[roundWinner].playedCard
+									players[roundWinner]?.playedCard
 								]}
 							/>
 						</div>

@@ -44,6 +44,123 @@
 
 		roomRef = child(ref(db), $page.params.slug);
 
+
+	onValue(roomRef, (snapshot) => {
+		//if created new room
+		if (snapshot.exists() || connected2db) {
+			if(snapshot.exists()){
+				const snap = snapshot.val();
+				//if existing room, but new to room
+				if (snap?.players?.[playerID] !== undefined) {
+					//if existing room, and rejoined => set active only at end of prev round
+					if (
+						!snap?.players?.[playerID].active &&
+						snap.state == states.declaringWinner
+					) {
+						set(child(roomRef, `players/${playerID}/active`), true);
+					}
+					judgePlayerID = snap.judge;
+					currentState = snap.state;
+					template = snap.template;
+					players = snap.players;
+					activePlayerIDs = Object.keys(players)
+						.filter((pid) => players[pid].active)
+						.sort();
+					playedCards = {};
+					for (var pid in players) {
+						if (
+							players[pid].active &&
+							players[pid].playedCard !== undefined
+						) {
+							playedCards[pid] = players[pid].playedCard;
+						}
+					}
+					if (snap.chance !== undefined) {
+						chance = new Chance(snap.chance);
+					}
+					if (snap.deckChance !== undefined) {
+						deckChance = new Chance(snap.deckChance);
+					}
+					if (snap.nextDeckCard !== undefined) {
+						nextDeckCard = snap.nextDeckCard;
+					}
+	
+					if (snap.currentlyJudging !== undefined) {
+						currentlyJudgingPlayerID = snap.currentlyJudging;
+					}
+					if (snap.roundWinner !== undefined) {
+						roundWinner = snap.roundWinner;
+					}
+	
+					if (
+						playerID == judgePlayerID &&
+						currentState == states.playingCards &&
+						Object.keys(playedCards).length ==
+							activePlayerIDs.length - 1
+					) {
+						let updates = {};
+						playerIDsLeftToJudge = activePlayerIDs.filter(
+							(pid) =>
+								players[pid]?.playedCard !== undefined &&
+								players[pid]?.playedCard >= 0
+						);
+						if (playerIDsLeftToJudge.length > 0) {
+							let ind2Judge = getRandomInt(
+								playerIDsLeftToJudge.length
+							);
+							currentlyJudgingPlayerID = playerIDsLeftToJudge.splice(
+								ind2Judge,
+								1
+							)[0];
+							updates['currentlyJudging'] = currentlyJudgingPlayerID;
+							setState(states.judgingSingle);
+						} else {
+							setState(states.declaringWinner);
+						}
+						updates[`state`] = currentState;
+						update(roomRef, updates);
+					}
+	
+					if (
+						currentState == states.judgingAll ||
+						currentState == states.declaringWinner
+					) {
+						shuffledPlayedCards = chance.shuffle(
+							Object.values(playedCards)
+						);
+					} else {
+						shuffledPlayedCards = [];
+					}
+				} else {
+					set(child(roomRef, `players/${playerID}`), {
+						active: true,
+						name: username,
+						score: 0,
+					});
+				}
+			}else{
+				//room closed
+				setState(states.roomClosed);
+			}
+		} else {
+			set(roomRef, {
+				chance: getRandomInt(10),
+				deckChance: getRandomInt(10000),
+				nextDeckCard: 0,
+				judge: playerID,
+				state: 0,
+				template: getRandomInt(data.Templates.length),
+				players: {
+					[playerID]: {
+						active: true,
+						name: username,
+						score: 0,
+					},
+				},
+			});
+		}
+		connected2db = true;
+	});
     });
 
 	function makeid(length) {
@@ -269,123 +386,6 @@
 	}
 
 	let connected2db = false;
-
-	onValue(roomRef, (snapshot) => {
-		//if created new room
-		if (snapshot.exists() || connected2db) {
-			if(snapshot.exists()){
-				const snap = snapshot.val();
-				//if existing room, but new to room
-				if (snap?.players?.[playerID] !== undefined) {
-					//if existing room, and rejoined => set active only at end of prev round
-					if (
-						!snap?.players?.[playerID].active &&
-						snap.state == states.declaringWinner
-					) {
-						set(child(roomRef, `players/${playerID}/active`), true);
-					}
-					judgePlayerID = snap.judge;
-					currentState = snap.state;
-					template = snap.template;
-					players = snap.players;
-					activePlayerIDs = Object.keys(players)
-						.filter((pid) => players[pid].active)
-						.sort();
-					playedCards = {};
-					for (var pid in players) {
-						if (
-							players[pid].active &&
-							players[pid].playedCard !== undefined
-						) {
-							playedCards[pid] = players[pid].playedCard;
-						}
-					}
-					if (snap.chance !== undefined) {
-						chance = new Chance(snap.chance);
-					}
-					if (snap.deckChance !== undefined) {
-						deckChance = new Chance(snap.deckChance);
-					}
-					if (snap.nextDeckCard !== undefined) {
-						nextDeckCard = snap.nextDeckCard;
-					}
-	
-					if (snap.currentlyJudging !== undefined) {
-						currentlyJudgingPlayerID = snap.currentlyJudging;
-					}
-					if (snap.roundWinner !== undefined) {
-						roundWinner = snap.roundWinner;
-					}
-	
-					if (
-						playerID == judgePlayerID &&
-						currentState == states.playingCards &&
-						Object.keys(playedCards).length ==
-							activePlayerIDs.length - 1
-					) {
-						let updates = {};
-						playerIDsLeftToJudge = activePlayerIDs.filter(
-							(pid) =>
-								players[pid]?.playedCard !== undefined &&
-								players[pid]?.playedCard >= 0
-						);
-						if (playerIDsLeftToJudge.length > 0) {
-							let ind2Judge = getRandomInt(
-								playerIDsLeftToJudge.length
-							);
-							currentlyJudgingPlayerID = playerIDsLeftToJudge.splice(
-								ind2Judge,
-								1
-							)[0];
-							updates['currentlyJudging'] = currentlyJudgingPlayerID;
-							setState(states.judgingSingle);
-						} else {
-							setState(states.declaringWinner);
-						}
-						updates[`state`] = currentState;
-						update(roomRef, updates);
-					}
-	
-					if (
-						currentState == states.judgingAll ||
-						currentState == states.declaringWinner
-					) {
-						shuffledPlayedCards = chance.shuffle(
-							Object.values(playedCards)
-						);
-					} else {
-						shuffledPlayedCards = [];
-					}
-				} else {
-					set(child(roomRef, `players/${playerID}`), {
-						active: true,
-						name: username,
-						score: 0,
-					});
-				}
-			}else{
-				//room closed
-				setState(states.roomClosed);
-			}
-		} else {
-			set(roomRef, {
-				chance: getRandomInt(10),
-				deckChance: getRandomInt(10000),
-				nextDeckCard: 0,
-				judge: playerID,
-				state: 0,
-				template: getRandomInt(data.Templates.length),
-				players: {
-					[playerID]: {
-						active: true,
-						name: username,
-						score: 0,
-					},
-				},
-			});
-		}
-		connected2db = true;
-	});
 
 	function leaveRoom(){
 		if(activePlayerIDs.length <= 3){

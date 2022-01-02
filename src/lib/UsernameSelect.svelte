@@ -15,21 +15,29 @@
         setCookie(cookieName, tempUsername);
     }
 
+    function onKeyPress(e) {
+        if (e.charCode === 13) {
+            if (tempUsername.length == 0 || tempUsername.indexOf(" ") >= 0) {
+                setUsername();
+            }
+        }
+    }
+
     function getCookie(cname) {
-  let name = cname + "=";
-  let decodedCookie = decodeURIComponent(document.cookie);
-  let ca = decodedCookie.split(';');
-  for(let i = 0; i <ca.length; i++) {
-    let c = ca[i];
-    while (c.charAt(0) == ' ') {
-      c = c.substring(1);
+        let name = cname + "=";
+        let decodedCookie = decodeURIComponent(document.cookie);
+        let ca = decodedCookie.split(";");
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) == " ") {
+                c = c.substring(1);
+            }
+            if (c.indexOf(name) == 0) {
+                return c.substring(name.length, c.length);
+            }
+        }
+        return "";
     }
-    if (c.indexOf(name) == 0) {
-      return c.substring(name.length, c.length);
-    }
-  }
-  return "";
-}
 
     function setCookie(name, value) {
         var expires = "";
@@ -49,6 +57,7 @@
             <span class="h1">Please choose a username:</span>
             <input
                 bind:value={tempUsername}
+                on:keypress={onKeyPress}
                 style="width: 100%"
                 class="form-control form-control-lg mt-3"
                 type="text"
